@@ -407,7 +407,7 @@ function GeneratorContent() {
   }
 
   const getStateDisplayName = (code: string) => {
-    const s = US_STATES.find(x => x.code ===Pc code)
+    const s = US_STATES.find(x => x.code === code)
     return s ? `${s.name} (${s.code})` : code
   }
 
