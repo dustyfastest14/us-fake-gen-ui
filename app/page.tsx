@@ -9,6 +9,8 @@ import { Copy, RefreshCw, Settings, Check, Download } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import ConfigDialog from "@/components/config-dialog"
 import JsonDownloadDialog from "@/components/json-download-dialog"
+// 引入 Faker
+import { fakerEN_US as faker } from "@faker-js/faker"
 
 interface PersonData {
   fullName: string
@@ -332,14 +334,6 @@ export default function HomePage() {
     }
   }, [searchParams, router])
 
-  const generateAge = (minAge: number, maxAge: number) => {
-    if (minAge === 0 && maxAge === 0) return null
-    const age = Math.floor(Math.random() * (maxAge - minAge + 1)) + minAge
-    const currentYear = new Date().getFullYear()
-    const birthYear = currentYear - age
-    return birthYear
-  }
-
   const updateUrlParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
@@ -355,103 +349,130 @@ export default function HomePage() {
   const fetchData = async (newSeed?: number) => {
     setLoading(true)
     try {
-      let attempts = 0
-      let result: PersonData | null = null
-      let currentSeed = newSeed || seed
+      const currentSeed = newSeed || seed
+      
+      // 初始化 Faker 种子，确保数据可重现
+      faker.seed(currentSeed)
 
-      while (attempts < 10) {
-        // 最多尝试10次
-        const params = new URLSearchParams()
-        if (state) params.append("state", state)
-        if (city) params.append("city", city)
-        params.append("_refresh", currentSeed.toString())
+      // 1. 生成个人基础数据 (替代原 API)
+      
+      // 处理性别
+      let sexType: 'male' | 'female' | undefined = undefined
+      if (gender === 'Male') sexType = 'male'
+      else if (gender === 'Female') sexType = 'female'
+      else sexType = faker.person.sexType()
+      
+      const firstName = faker.person.firstName(sexType)
+      const lastName = faker.person.lastName()
+      const fullName = `${firstName} ${lastName}`
 
-        const response = await fetch(`https://www.usaddrgen.com/api/generate.php?${params.toString()}`)
-        const apiData = await response.json()
+      // 处理生日/年龄
+      let birthDate: Date
+      if (minAge > 0 && maxAge > 0) {
+        const age = faker.number.int({ min: minAge, max: maxAge })
+        const currentYear = new Date().getFullYear()
+        // 使用 birthdate 生成符合年龄的日期
+        birthDate = faker.date.birthdate({ mode: 'age', min: age, max: age })
+      } else {
+        // 默认 18-70 岁
+        birthDate = faker.date.birthdate({ min: 18, max: 70, mode: 'age' })
+      }
+      const birthday = birthDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
 
-        if (apiData.success) {
-          result = apiData.data
+      // 处理地址
+      // 如果用户指定了 state/city，尽量使用（Faker 的 location 不一定能精确匹配所有城市，这里做简化处理）
+      let targetState = state && state !== "random" ? state : faker.location.state({ abbreviated: true })
+      // 查找州全名
+      const stateObj = US_STATES.find(s => s.code === targetState)
+      const stateFullName = stateObj ? stateObj.name : targetState
+      
+      const targetCity = city && city !== "random" ? city : faker.location.city()
+      const zipCode = faker.location.zipCodeByState(targetState)
+      const street = faker.location.streetAddress()
+      const fullAddress = `${street}, ${targetCity}, ${targetState} ${zipCode}`
 
-          // 检查性别过滤
-          if (gender && result.gender.toLowerCase() !== gender.toLowerCase()) {
-            attempts++
-            currentSeed = generateSeed()
-            continue
-          }
-          break
-        }
-        attempts++
+      // 构建 Result 对象
+      const result: PersonData = {
+        fullName,
+        firstName,
+        lastName,
+        gender: sexType.charAt(0).toUpperCase() + sexType.slice(1),
+        birthday,
+        title: faker.person.prefix(sexType),
+        hairColor: faker.helpers.arrayElement(['Black', 'Brown', 'Blond', 'Auburn', 'Red', 'Gray', 'White']),
+        country: "United States",
+        street,
+        city: targetCity,
+        state: targetState,
+        stateFullName,
+        zipCode,
+        phone: faker.phone.number({ style: 'national' }),
+        email: faker.internet.email({ firstName, lastName }),
+        fullAddress,
+        occupation: faker.person.jobTitle(),
+        company: faker.company.name(),
+        companySize: faker.number.int({ min: 10, max: 50000 }).toString(),
+        industry: faker.commerce.department(),
+        status: faker.helpers.arrayElement(['Full-time', 'Part-time', 'Freelance']),
+        salary: `$${faker.number.int({ min: 30000, max: 200000 }).toLocaleString()}`,
+        ssn: faker.finance.accountNumber(9).replace(/(\d{3})(\d{2})(\d{4})/, '$1-$2-$3'),
+        cardType: faker.finance.creditCardIssuer(),
+        cardNumber: faker.finance.creditCardNumber(),
+        cvv: parseInt(faker.finance.creditCardCVV()),
+        expiry: faker.date.future().toLocaleDateString('en-US', { month: '2-digit', year: '2-digit' }),
+        username: faker.internet.username({ firstName, lastName }),
+        password: faker.internet.password(),
+        height: `${faker.number.int({ min: 150, max: 200 })} cm`,
+        weight: `${faker.number.int({ min: 45, max: 120 })} kg`,
+        bloodType: faker.helpers.arrayElement(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']),
+        os: faker.helpers.arrayElement(['Windows 11', 'Windows 10', 'macOS', 'Linux', 'iOS', 'Android']),
+        guid: faker.string.uuid(),
+        userAgent: faker.internet.userAgent(),
+        education: faker.helpers.arrayElement(["High School", "Associate Degree", "Bachelor's Degree", "Master's Degree", "PhD"]),
+        website: faker.internet.url(),
+        securityQuestion: "What is your mother's maiden name?",
+        securityAnswer: faker.person.lastName()
       }
 
-      if (result) {
-        // 处理年龄范围
-        let targetBirthYear = null
-        if (minAge > 0 && maxAge > 0) {
-          targetBirthYear = generateAge(minAge, maxAge)
-        }
+      // 2. 获取高中信息 (保留原有逻辑，OpenDataSoft API 通常比较稳定)
+      let schoolResult: SchoolData | null = null
+      const schoolStateToUse = highState || result.state
+      const schoolCityToUse = highCity || result.city
 
-        // 如果有年龄范围，更新生日
-        if (targetBirthYear) {
-          const birthParts = result.birthday.split("/")
-          const birthMonth = birthParts[0]
-          const birthDay = birthParts[1]
-          result.birthday = `${birthMonth}/${birthDay}/${targetBirthYear}`
-        }
+      if (schoolStateToUse && schoolStateToUse !== 'random') {
+        try {
+          const schoolParams = new URLSearchParams()
+          schoolParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
 
-        // 获取高中信息
-        let schoolResult: SchoolData | null = null
-        const schoolStateToUse = highState || result.state
-        const schoolCityToUse = highCity || result.city
+          let whereClause = `state="${schoolStateToUse}" AND end_grade = "12"`
+          if (schoolCityToUse && schoolCityToUse !== "random") {
+            whereClause += ` AND city="${schoolCityToUse.toUpperCase()}"`
+          }
 
-        if (schoolStateToUse) {
-          try {
-            const schoolParams = new URLSearchParams()
-            schoolParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
+          schoolParams.append("where", whereClause)
+          schoolParams.append("order_by", `random(${currentSeed})`)
+          schoolParams.append("limit", "1")
 
-            let whereClause = `state="${schoolStateToUse}" AND end_grade = "12"`
-            if (schoolCityToUse) {
-              whereClause += ` AND city="${schoolCityToUse.toUpperCase()}"`
-            }
+          const schoolResponse = await fetch(
+            `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${schoolParams.toString()}`,
+          )
+          const schoolApiData = await schoolResponse.json()
 
-            schoolParams.append("where", whereClause)
-            schoolParams.append("order_by", `random(${currentSeed})`)
-            schoolParams.append("limit", "1")
+          // 降级策略：如果指定城市没找到，则只按州查找
+          if ((!schoolApiData.results || schoolApiData.results.length === 0) && schoolCityToUse && schoolCityToUse !== "random") {
+            const fallbackParams = new URLSearchParams()
+            fallbackParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
+            fallbackParams.append("where", `state="${schoolStateToUse}" AND end_grade = "12"`)
+            fallbackParams.append("order_by", `random(${currentSeed})`)
+            fallbackParams.append("limit", "1")
 
-            const schoolResponse = await fetch(
-              `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${schoolParams.toString()}`,
+            const fallbackResponse = await fetch(
+              `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${fallbackParams.toString()}`,
             )
-            const schoolApiData = await schoolResponse.json()
+            const fallbackData = await fallbackResponse.json()
 
-            // 如果没有找到结果且指定了城市，尝试去掉城市限制
-            if ((!schoolApiData.results || schoolApiData.results.length === 0) && schoolCityToUse) {
-              const fallbackParams = new URLSearchParams()
-              fallbackParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
-              fallbackParams.append("where", `state="${schoolStateToUse}" AND end_grade = "12"`)
-              fallbackParams.append("order_by", `random(${currentSeed})`)
-              fallbackParams.append("limit", "1")
-
-              const fallbackResponse = await fetch(
-                `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${fallbackParams.toString()}`,
-              )
-              const fallbackData = await fallbackResponse.json()
-
-              if (fallbackData.results && fallbackData.results.length > 0) {
-                const school = fallbackData.results[0]
-                schoolResult = {
-                  name: school.name || "",
-                  ncesid: school.ncesid || "",
-                  zip: school.zip || "",
-                  website: school.website || "",
-                  address: school.address || "",
-                  city: school.city || "",
-                  state: school.state || "",
-                  telephone: school.telephone || "",
-                  st_grade: school.st_grade || "",
-                  end_grade: school.end_grade || "",
-                }
-              }
-            } else if (schoolApiData.results && schoolApiData.results.length > 0) {
-              const school = schoolApiData.results[0]
+            if (fallbackData.results && fallbackData.results.length > 0) {
+              const school = fallbackData.results[0]
               schoolResult = {
                 name: school.name || "",
                 ncesid: school.ncesid || "",
@@ -465,75 +486,84 @@ export default function HomePage() {
                 end_grade: school.end_grade || "",
               }
             }
-          } catch (error) {
-            console.error("Failed to fetch school data:", error)
-          }
-        }
-
-        // 获取大学信息
-        let universityResult: UniversityData | null = null
-        const universityStateToUse = universityState || result.state
-
-        if (universityStateToUse) {
-          try {
-            const universityParams = new URLSearchParams()
-            universityParams.append("select", "name,ipedsid,zip,website,address,city,state,telephone,type")
-
-            let whereClause = `state="${universityStateToUse}" AND type="1"`
-            if (universityCity) {
-              whereClause += ` AND city="${universityCity.toUpperCase()}"`
+          } else if (schoolApiData.results && schoolApiData.results.length > 0) {
+            const school = schoolApiData.results[0]
+            schoolResult = {
+              name: school.name || "",
+              ncesid: school.ncesid || "",
+              zip: school.zip || "",
+              website: school.website || "",
+              address: school.address || "",
+              city: school.city || "",
+              state: school.state || "",
+              telephone: school.telephone || "",
+              st_grade: school.st_grade || "",
+              end_grade: school.end_grade || "",
             }
-
-            universityParams.append("where", whereClause)
-            universityParams.append("order_by", `random(${currentSeed})`)
-            universityParams.append("limit", "1")
-
-            const universityResponse = await fetch(
-              `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-colleges-and-universities/records?${universityParams.toString()}`,
-            )
-            const universityApiData = await universityResponse.json()
-
-            if (universityApiData.results && universityApiData.results.length > 0) {
-              const university = universityApiData.results[0]
-              universityResult = {
-                name: university.name || "",
-                ipedsid: university.ipedsid || "",
-                zip: university.zip || "",
-                website: university.website || "",
-                address: university.address || "",
-                city: university.city || "",
-                state: university.state || "",
-                telephone: university.telephone || "",
-                type: university.type || "",
-              }
-            }
-          } catch (error) {
-            console.error("Failed to fetch university data:", error)
           }
+        } catch (error) {
+          console.error("Failed to fetch school data:", error)
         }
+      }
 
-        setSchoolData(schoolResult)
-        setUniversityData(universityResult)
+      // 3. 获取大学信息
+      let universityResult: UniversityData | null = null
+      const universityStateToUse = universityState || result.state
 
-        // 更新URL参数
-        if (newSeed) {
-          updateUrlParams({
-            seed: currentSeed.toString(),
-          })
+      if (universityStateToUse && universityStateToUse !== 'random') {
+        try {
+          const universityParams = new URLSearchParams()
+          universityParams.append("select", "name,ipedsid,zip,website,address,city,state,telephone,type")
+
+          let whereClause = `state="${universityStateToUse}" AND type="1"`
+          if (universityCity && universityCity !== "random") {
+            whereClause += ` AND city="${universityCity.toUpperCase()}"`
+          }
+
+          universityParams.append("where", whereClause)
+          universityParams.append("order_by", `random(${currentSeed})`)
+          universityParams.append("limit", "1")
+
+          const universityResponse = await fetch(
+            `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-colleges-and-universities/records?${universityParams.toString()}`,
+          )
+          const universityApiData = await universityResponse.json()
+
+          if (universityApiData.results && universityApiData.results.length > 0) {
+            const university = universityApiData.results[0]
+            universityResult = {
+              name: university.name || "",
+              ipedsid: university.ipedsid || "",
+              zip: university.zip || "",
+              website: university.website || "",
+              address: university.address || "",
+              city: university.city || "",
+              state: university.state || "",
+              telephone: university.telephone || "",
+              type: university.type || "",
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch university data:", error)
         }
+      }
 
-        setData(result)
-      } else {
-        toast({
-          title: "生成失败",
-          description: "无法生成符合条件的数据，请重试",
-          variant: "destructive",
+      setSchoolData(schoolResult)
+      setUniversityData(universityResult)
+
+      // 更新URL参数
+      if (newSeed) {
+        updateUrlParams({
+          seed: currentSeed.toString(),
         })
       }
+
+      setData(result)
     } catch (error) {
+      console.error(error)
       toast({
         title: "请求失败",
-        description: "网络错误，请检查网络连接",
+        description: "生成数据时发生错误，请重试",
         variant: "destructive",
       })
     } finally {
@@ -560,7 +590,7 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    // 只有当URL参数完整时才调用API
+    // 只有当URL参数完整时才生成数据
     if (searchParams.get("fields") && searchParams.get("seed")) {
       fetchData()
     }
