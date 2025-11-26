@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import ConfigDialog from "@/components/config-dialog"
 import JsonDownloadDialog from "@/components/json-download-dialog"
 import { fakerEN_US as faker } from "@faker-js/faker"
 
+// 类型定义
 interface PersonData {
   fullName: string
   firstName: string
@@ -78,222 +79,62 @@ interface UniversityData {
   type: string
 }
 
-// 生成随机数种子
 const generateSeed = () => Math.floor(Math.random() * 1000000)
 
 const DEFAULT_VISIBLE_FIELDS = [
-  "fullName",
-  "firstName",
-  "lastName",
-  "gender",
-  "birthday",
-  "title",
-  "hairColor",
-  "street",
-  "city",
-  "state",
-  "zipCode",
-  "phone",
-  "email",
-  "fullAddress",
-  "ssn",
-  "cardType",
-  "cardNumber",
-  "cvv",
-  "expiry",
-  "schoolName",
-  "schoolId",
-  "schoolZip",
-  "schoolWebsite",
-  "schoolAddress",
-  "schoolPhone",
-  "schoolGrades",
-  "universityName",
-  "universityId",
-  "universityZip",
-  "universityWebsite",
-  "universityAddress",
-  "universityPhone",
-  "universityType",
+  "fullName", "firstName", "lastName", "gender", "birthday", "title", "hairColor",
+  "street", "city", "state", "zipCode", "phone", "email", "fullAddress",
+  "ssn", "cardType", "cardNumber", "cvv", "expiry",
+  "schoolName", "schoolId", "schoolZip", "schoolWebsite", "schoolAddress", "schoolPhone", "schoolGrades",
+  "universityName", "universityId", "universityZip", "universityWebsite", "universityAddress", "universityPhone", "universityType"
 ]
 
 const FIELD_LABELS: Record<string, string> = {
-  fullName: "全名",
-  firstName: "名",
-  lastName: "姓",
-  gender: "性别",
-  birthday: "生日",
-  title: "称谓",
-  hairColor: "发色",
-  country: "国家",
-  street: "街道",
-  city: "城市",
-  state: "州",
-  stateFullName: "州全名",
-  zipCode: "邮编",
-  phone: "电话",
-  email: "邮箱",
-  fullAddress: "完整地址",
-  occupation: "职业",
-  company: "公司",
-  companySize: "公司规模",
-  industry: "行业",
-  status: "工作状态",
-  salary: "薪资",
-  ssn: "社会安全号",
-  cardType: "信用卡类型",
-  cardNumber: "信用卡号",
-  cvv: "CVV",
-  expiry: "到期日期",
-  username: "用户名",
-  password: "密码",
-  height: "身高",
-  weight: "体重",
-  bloodType: "血型",
-  os: "操作系统",
-  guid: "GUID",
-  userAgent: "用户代理",
-  education: "教育程度",
-  website: "个人网站",
-  securityQuestion: "安全问题",
-  securityAnswer: "安全答案",
-  schoolName: "高中名称",
-  schoolId: "高中ID",
-  schoolZip: "高中邮编",
-  schoolWebsite: "高中网站",
-  schoolAddress: "高中地址",
-  schoolCity: "高中城市",
-  schoolState: "高中州",
-  schoolPhone: "高中电话",
-  schoolGrades: "年级范围",
-  universityName: "大学名称",
-  universityId: "大学ID",
-  universityZip: "大学邮编",
-  universityWebsite: "大学网站",
-  universityAddress: "大学地址",
-  universityCity: "大学城市",
-  universityState: "大学州",
-  universityPhone: "大学电话",
-  universityType: "大学类型",
+  fullName: "全名", firstName: "名", lastName: "姓", gender: "性别", birthday: "生日", title: "称谓", hairColor: "发色",
+  country: "国家", street: "街道", city: "城市", state: "州", stateFullName: "州全名", zipCode: "邮编",
+  phone: "电话", email: "邮箱", fullAddress: "完整地址", occupation: "职业", company: "公司",
+  companySize: "公司规模", industry: "行业", status: "工作状态", salary: "薪资",
+  ssn: "社会安全号", cardType: "信用卡类型", cardNumber: "信用卡号", cvv: "CVV", expiry: "到期日期",
+  username: "用户名", password: "密码", height: "身高", weight: "体重", bloodType: "血型",
+  os: "操作系统", guid: "GUID", userAgent: "用户代理", education: "教育程度",
+  website: "个人网站", securityQuestion: "安全问题", securityAnswer: "安全答案",
+  schoolName: "高中名称", schoolId: "高中ID", schoolZip: "高中邮编", schoolWebsite: "高中网站",
+  schoolAddress: "高中地址", schoolCity: "高中城市", schoolState: "高中州", schoolPhone: "高中电话", schoolGrades: "年级范围",
+  universityName: "大学名称", universityId: "大学ID", universityZip: "大学邮编", universityWebsite: "大学网站",
+  universityAddress: "大学地址", universityCity: "大学城市", universityState: "大学州", universityPhone: "大学电话", universityType: "大学类型"
+}
+
+const FIELD_CATEGORIES = {
+  basic: { title: "基本信息", fields: ["fullName", "firstName", "lastName", "gender", "birthday", "title", "hairColor"] },
+  contact: { title: "联系信息", fields: ["street", "city", "state", "stateFullName", "zipCode", "phone", "email", "fullAddress"] },
+  work: { title: "工作信息", fields: ["occupation", "company", "companySize", "industry", "status", "salary"] },
+  physical: { title: "身体信息", fields: ["height", "weight", "bloodType"] },
+  financial: { title: "金融信息", fields: ["ssn", "cardType", "cardNumber", "cvv", "expiry"] },
+  account: { title: "账户信息", fields: ["username", "password", "securityQuestion", "securityAnswer"] },
+  tech: { title: "技术信息", fields: ["os", "userAgent", "guid"] },
+  other: { title: "其他信息", fields: ["education", "website", "country"] },
+  school: { title: "高中信息", fields: ["schoolName", "schoolId", "schoolZip", "schoolWebsite", "schoolAddress", "schoolCity", "schoolState", "schoolPhone", "schoolGrades"] },
+  university: { title: "大学信息", fields: ["universityName", "universityId", "universityZip", "universityWebsite", "universityAddress", "universityCity", "universityState", "universityPhone", "universityType"] },
 }
 
 const US_STATES = [
-  { code: "AL", name: "Alabama" },
-  { code: "AK", name: "Alaska" },
-  { code: "AZ", name: "Arizona" },
-  { code: "AR", name: "Arkansas" },
-  { code: "CA", name: "California" },
-  { code: "CO", name: "Colorado" },
-  { code: "CT", name: "Connecticut" },
-  { code: "DE", name: "Delaware" },
-  { code: "FL", name: "Florida" },
-  { code: "GA", name: "Georgia" },
-  { code: "HI", name: "Hawaii" },
-  { code: "ID", name: "Idaho" },
-  { code: "IL", name: "Illinois" },
-  { code: "IN", name: "Indiana" },
-  { code: "IA", name: "Iowa" },
-  { code: "KS", name: "Kansas" },
-  { code: "KY", name: "Kentucky" },
-  { code: "LA", name: "Louisiana" },
-  { code: "ME", name: "Maine" },
-  { code: "MD", name: "Maryland" },
-  { code: "MA", name: "Massachusetts" },
-  { code: "MI", name: "Michigan" },
-  { code: "MN", name: "Minnesota" },
-  { code: "MS", name: "Mississippi" },
-  { code: "MO", name: "Missouri" },
-  { code: "MT", name: "Montana" },
-  { code: "NE", name: "Nebraska" },
-  { code: "NV", name: "Nevada" },
-  { code: "NH", name: "New Hampshire" },
-  { code: "NJ", name: "New Jersey" },
-  { code: "NM", name: "New Mexico" },
-  { code: "NY", name: "New York" },
-  { code: "NC", name: "North Carolina" },
-  { code: "ND", name: "North Dakota" },
-  { code: "OH", name: "Ohio" },
-  { code: "OK", name: "Oklahoma" },
-  { code: "OR", name: "Oregon" },
-  { code: "PA", name: "Pennsylvania" },
-  { code: "RI", name: "Rhode Island" },
-  { code: "SC", name: "South Carolina" },
-  { code: "SD", name: "South Dakota" },
-  { code: "TN", name: "Tennessee" },
-  { code: "TX", name: "Texas" },
-  { code: "UT", name: "Utah" },
-  { code: "VT", name: "Vermont" },
-  { code: "VA", name: "Virginia" },
-  { code: "WA", name: "Washington" },
-  { code: "WV", name: "West Virginia" },
-  { code: "WI", name: "Wisconsin" },
-  { code: "WY", name: "Wyoming" },
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" }, { code: "AZ", name: "Arizona" }, { code: "AR", name: "Arkansas" },
+  { code: "CA", name: "California" }, { code: "CO", name: "Colorado" }, { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" },
+  { code: "FL", name: "Florida" }, { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" }, { code: "ID", name: "Idaho" },
+  { code: "IL", name: "Illinois" }, { code: "IN", name: "Indiana" }, { code: "IA", name: "Iowa" }, { code: "KS", name: "Kansas" },
+  { code: "KY", name: "Kentucky" }, { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" }, { code: "MD", name: "Maryland" },
+  { code: "MA", name: "Massachusetts" }, { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" }, { code: "MS", name: "Mississippi" },
+  { code: "MO", name: "Missouri" }, { code: "MT", name: "Montana" }, { code: "NE", name: "Nebraska" }, { code: "NV", name: "Nevada" },
+  { code: "NH", name: "New Hampshire" }, { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" }, { code: "NY", name: "New York" },
+  { code: "NC", name: "North Carolina" }, { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" }, { code: "OK", name: "Oklahoma" },
+  { code: "OR", name: "Oregon" }, { code: "PA", name: "Pennsylvania" }, { code: "RI", name: "Rhode Island" }, { code: "SC", name: "South Carolina" },
+  { code: "SD", name: "South Dakota" }, { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" }, { code: "UT", name: "Utah" },
+  { code: "VT", name: "Vermont" }, { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" }, { code: "WV", name: "West Virginia" },
+  { code: "WI", name: "Wisconsin" }, { code: "WY", name: "Wyoming" }
 ]
 
-const FIELD_CATEGORIES = {
-  basic: {
-    title: "基本信息",
-    fields: ["fullName", "firstName", "lastName", "gender", "birthday", "title", "hairColor"],
-  },
-  contact: {
-    title: "联系信息",
-    fields: ["street", "city", "state", "stateFullName", "zipCode", "phone", "email", "fullAddress"],
-  },
-  work: {
-    title: "工作信息",
-    fields: ["occupation", "company", "companySize", "industry", "status", "salary"],
-  },
-  physical: {
-    title: "身体信息",
-    fields: ["height", "weight", "bloodType"],
-  },
-  financial: {
-    title: "金融信息",
-    fields: ["ssn", "cardType", "cardNumber", "cvv", "expiry"],
-  },
-  account: {
-    title: "账户信息",
-    fields: ["username", "password", "securityQuestion", "securityAnswer"],
-  },
-  tech: {
-    title: "技术信息",
-    fields: ["os", "userAgent", "guid"],
-  },
-  other: {
-    title: "其他信息",
-    fields: ["education", "website", "country"],
-  },
-  school: {
-    title: "高中信息",
-    fields: [
-      "schoolName",
-      "schoolId",
-      "schoolZip",
-      "schoolWebsite",
-      "schoolAddress",
-      "schoolCity",
-      "schoolState",
-      "schoolPhone",
-      "schoolGrades",
-    ],
-  },
-  university: {
-    title: "大学信息",
-    fields: [
-      "universityName",
-      "universityId",
-      "universityZip",
-      "universityWebsite",
-      "universityAddress",
-      "universityCity",
-      "universityState",
-      "universityPhone",
-      "universityType",
-    ],
-  },
-}
-
-export default function HomePage() {
+// 主逻辑组件
+function GeneratorContent() {
   const [data, setData] = useState<PersonData | null>(null)
   const [loading, setLoading] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
@@ -305,7 +146,7 @@ export default function HomePage() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // 从URL参数获取配置
+  // 参数解析
   const state = searchParams.get("state") || ""
   const city = searchParams.get("city") || ""
   const gender = searchParams.get("gender") || ""
@@ -314,20 +155,19 @@ export default function HomePage() {
   const visibleFields = searchParams.get("fields")?.split(",") || DEFAULT_VISIBLE_FIELDS
   const seed = Number.parseInt(searchParams.get("seed") || "0") || generateSeed()
 
-  // 高中和大学筛选参数
   const highState = searchParams.get("highState") || ""
   const highCity = searchParams.get("highCity") || ""
   const universityState = searchParams.get("universityState") || ""
   const universityCity = searchParams.get("universityCity") || ""
 
-  // 核心数据生成逻辑 (使用 useCallback 避免不必要的重新定义)
-  const fetchData = useCallback(async () => {
+  // 核心生成函数
+  const fetchData = useCallback(async (seedOverride?: number) => {
     setLoading(true)
     try {
-      // 初始化 Faker 种子
-      faker.seed(seed)
+      const currentSeed = seedOverride ?? seed
+      faker.seed(currentSeed)
 
-      // 1. 生成个人基础数据 (Faker 本地生成，速度快且无网络依赖)
+      // 1. 生成个人数据 (Faker)
       let sexType: 'male' | 'female' | undefined = undefined
       if (gender === 'Male') sexType = 'male'
       else if (gender === 'Female') sexType = 'female'
@@ -337,19 +177,15 @@ export default function HomePage() {
       const lastName = faker.person.lastName()
       const fullName = `${firstName} ${lastName}`
 
-      // 处理生日/年龄
       let birthDate: Date
       if (minAge > 0 && maxAge > 0) {
         const age = faker.number.int({ min: minAge, max: maxAge })
-        // 使用 birthdate 生成符合年龄的日期
         birthDate = faker.date.birthdate({ mode: 'age', min: age, max: age })
       } else {
-        // 默认 18-70 岁
         birthDate = faker.date.birthdate({ min: 18, max: 70, mode: 'age' })
       }
       const birthday = birthDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
 
-      // 处理地址
       let targetState = state && state !== "random" ? state : faker.location.state({ abbreviated: true })
       const stateObj = US_STATES.find(s => s.code === targetState)
       const stateFullName = stateObj ? stateObj.name : targetState
@@ -359,21 +195,14 @@ export default function HomePage() {
       const street = faker.location.streetAddress()
       const fullAddress = `${street}, ${targetCity}, ${targetState} ${zipCode}`
 
-      // 构建 Result 对象
       const result: PersonData = {
-        fullName,
-        firstName,
-        lastName,
+        fullName, firstName, lastName,
         gender: sexType.charAt(0).toUpperCase() + sexType.slice(1),
         birthday,
         title: faker.person.prefix(sexType),
         hairColor: faker.helpers.arrayElement(['Black', 'Brown', 'Blond', 'Auburn', 'Red', 'Gray', 'White']),
         country: "United States",
-        street,
-        city: targetCity,
-        state: targetState,
-        stateFullName,
-        zipCode,
+        street, city: targetCity, state: targetState, stateFullName, zipCode,
         phone: faker.phone.number({ style: 'national' }),
         email: faker.internet.email({ firstName, lastName }),
         fullAddress,
@@ -402,332 +231,155 @@ export default function HomePage() {
         securityAnswer: faker.person.lastName()
       }
 
-      // 先设置核心数据，保证用户能看到东西
+      // 立即更新核心数据，让用户感觉"有反应"
       setData(result)
-      
-      // 2. 异步获取学校/大学数据 (使用独立 try-catch 防止阻塞核心数据)
-      
-      // 学校数据
-      let schoolResult: SchoolData | null = null
-      const schoolStateToUse = highState || result.state
-      const schoolCityToUse = highCity || result.city
 
-      if (schoolStateToUse && schoolStateToUse !== 'random') {
+      // 2. 异步获取教育数据 (不阻塞核心展示)
+      // 高中
+      let schoolResult: SchoolData | null = null
+      const schoolStateToUse = highState || targetState
+      if (schoolStateToUse) {
         try {
           const schoolParams = new URLSearchParams()
           schoolParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
-          let whereClause = `state="${schoolStateToUse}" AND end_grade = "12"`
-          if (schoolCityToUse && schoolCityToUse !== "random") {
-            whereClause += ` AND city="${schoolCityToUse.toUpperCase()}"`
-          }
-          schoolParams.append("where", whereClause)
-          schoolParams.append("order_by", `random(${seed})`)
+          schoolParams.append("where", `state="${schoolStateToUse}" AND end_grade = "12"`)
+          schoolParams.append("order_by", `random(${currentSeed})`)
           schoolParams.append("limit", "1")
-
-          const schoolResponse = await fetch(
-            `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${schoolParams.toString()}`,
-          )
-          if(schoolResponse.ok) {
-             const schoolApiData = await schoolResponse.json()
-             // Fallback 逻辑
-             if ((!schoolApiData.results || schoolApiData.results.length === 0) && schoolCityToUse && schoolCityToUse !== "random") {
-               const fallbackParams = new URLSearchParams()
-               fallbackParams.append("select", "name,ncesid,zip,website,address,city,state,telephone,st_grade,end_grade")
-               fallbackParams.append("where", `state="${schoolStateToUse}" AND end_grade = "12"`)
-               fallbackParams.append("order_by", `random(${seed})`)
-               fallbackParams.append("limit", "1")
-               const fallbackResponse = await fetch(
-                 `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${fallbackParams.toString()}`,
-               )
-               if(fallbackResponse.ok) {
-                 const fallbackData = await fallbackResponse.json()
-                 if (fallbackData.results && fallbackData.results.length > 0) {
-                   const school = fallbackData.results[0]
-                   schoolResult = mapToSchoolData(school)
-                 }
-               }
-             } else if (schoolApiData.results && schoolApiData.results.length > 0) {
-               schoolResult = mapToSchoolData(schoolApiData.results[0])
-             }
-          }
-        } catch (error) {
-          console.warn("Failed to fetch school data:", error)
-        }
-      }
-      setSchoolData(schoolResult)
-
-      // 大学数据
-      let universityResult: UniversityData | null = null
-      const universityStateToUse = universityState || result.state
-
-      if (universityStateToUse && universityStateToUse !== 'random') {
-        try {
-          const universityParams = new URLSearchParams()
-          universityParams.append("select", "name,ipedsid,zip,website,address,city,state,telephone,type")
-          let whereClause = `state="${universityStateToUse}" AND type="1"`
-          if (universityCity && universityCity !== "random") {
-            whereClause += ` AND city="${universityCity.toUpperCase()}"`
-          }
-          universityParams.append("where", whereClause)
-          universityParams.append("order_by", `random(${seed})`)
-          universityParams.append("limit", "1")
-
-          const universityResponse = await fetch(
-            `https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-colleges-and-universities/records?${universityParams.toString()}`,
-          )
-          if (universityResponse.ok) {
-            const universityApiData = await universityResponse.json()
-            if (universityApiData.results && universityApiData.results.length > 0) {
-              const university = universityApiData.results[0]
-              universityResult = {
-                name: university.name || "",
-                ipedsid: university.ipedsid || "",
-                zip: university.zip || "",
-                website: university.website || "",
-                address: university.address || "",
-                city: university.city || "",
-                state: university.state || "",
-                telephone: university.telephone || "",
-                type: university.type || "",
+          
+          const res = await fetch(`https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-public-schools/records?${schoolParams.toString()}`)
+          if (res.ok) {
+            const apiData = await res.json()
+            if (apiData.results?.[0]) {
+              const s = apiData.results[0]
+              schoolResult = {
+                name: s.name || "", ncesid: s.ncesid || "", zip: s.zip || "", website: s.website || "",
+                address: s.address || "", city: s.city || "", state: s.state || "", telephone: s.telephone || "",
+                st_grade: s.st_grade || "", end_grade: s.end_grade || ""
               }
             }
           }
-        } catch (error) {
-          console.warn("Failed to fetch university data:", error)
-        }
+        } catch (e) { console.warn(e) }
+      }
+      setSchoolData(schoolResult)
+
+      // 大学
+      let universityResult: UniversityData | null = null
+      const universityStateToUse = universityState || targetState
+      if (universityStateToUse) {
+        try {
+          const uniParams = new URLSearchParams()
+          uniParams.append("select", "name,ipedsid,zip,website,address,city,state,telephone,type")
+          uniParams.append("where", `state="${universityStateToUse}" AND type="1"`)
+          uniParams.append("order_by", `random(${currentSeed})`)
+          uniParams.append("limit", "1")
+
+          const res = await fetch(`https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/us-colleges-and-universities/records?${uniParams.toString()}`)
+          if (res.ok) {
+            const apiData = await res.json()
+            if (apiData.results?.[0]) {
+              const u = apiData.results[0]
+              universityResult = {
+                name: u.name || "", ipedsid: u.ipedsid || "", zip: u.zip || "", website: u.website || "",
+                address: u.address || "", city: u.city || "", state: u.state || "", telephone: u.telephone || "",
+                type: u.type || ""
+              }
+            }
+          }
+        } catch (e) { console.warn(e) }
       }
       setUniversityData(universityResult)
 
     } catch (error) {
       console.error(error)
-      toast({
-        title: "生成失败",
-        description: "本地数据生成遇到严重错误",
-        variant: "destructive",
-      })
+      toast({ title: "生成错误", description: "请重试", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }, [state, city, gender, minAge, maxAge, seed, highState, highCity, universityState, universityCity])
 
-  // 辅助函数：映射学校数据
-  const mapToSchoolData = (school: any): SchoolData => ({
-    name: school.name || "",
-    ncesid: school.ncesid || "",
-    zip: school.zip || "",
-    website: school.website || "",
-    address: school.address || "",
-    city: school.city || "",
-    state: school.state || "",
-    telephone: school.telephone || "",
-    st_grade: school.st_grade || "",
-    end_grade: school.end_grade || "",
-  })
-
   const updateUrlParams = (updates: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString())
     Object.entries(updates).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value)
-      } else {
-        params.delete(key)
-      }
+      if (value) params.set(key, value)
+      else params.delete(key)
     })
     router.replace(`/?${params.toString()}`)
   }
 
-  // 核心修改：handleRegenerate 仅负责更新 URL 种子
-  // 数据的实际更新由下方的 useEffect 监听 seed 变化来触发
+  // 点击按钮：同时更新URL和强制刷新数据
   const handleRegenerate = () => {
     const newSeed = generateSeed()
+    // 1. 立即开始加载（提升响应速度感）
+    setLoading(true)
+    // 2. 更新 URL（用于分享）
     updateUrlParams({ seed: newSeed.toString() })
+    // 3. 强制调用生成函数（传入新种子，不依赖 URL 回传，防止卡顿）
+    fetchData(newSeed)
   }
 
-  // 监听 URL 参数变化，自动重新获取数据
+  // 初始化加载
   useEffect(() => {
-    if (searchParams.get("fields") && searchParams.get("seed")) {
-      fetchData()
+    if (!searchParams.get("seed")) {
+      handleRegenerate()
     } else {
-      // 初始化默认参数
-      const params = new URLSearchParams(searchParams.toString())
-      if(!params.get("fields")) params.set("fields", DEFAULT_VISIBLE_FIELDS.join(","))
-      if(!params.get("seed")) params.set("seed", generateSeed().toString())
-      router.replace(`/?${params.toString()}`)
+      // 如果有种子，说明是首次加载或通过链接进入，执行一次
+      // 注意：为了避免 handleRegenerate 导致的双重调用，这里加个判断
+      // 但由于 fetchData 使用 useCallback 且依赖项变化，React 可能会自动处理
+      // 为了稳妥，我们仅在 data 为空时调用
+      if (!data) fetchData()
     }
-  }, [fetchData, searchParams, router])
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopiedField(field)
       setTimeout(() => setCopiedField(null), 2000)
-      toast({
-        title: "复制成功",
-        description: `已复制 ${FIELD_LABELS[field]}`,
-      })
+      toast({ title: "复制成功", description: `已复制 ${FIELD_LABELS[field]}` })
     } catch (error) {
-      toast({
-        title: "复制失败",
-        description: "无法复制到剪贴板",
-        variant: "destructive",
-      })
+      toast({ title: "复制失败", variant: "destructive" })
     }
   }
 
   const renderDataItem = (key: string, value: any) => {
     if (!visibleFields.includes(key)) return null
+    let displayValue = value?.toString() || ""
+    let isLink = false
 
-    // 处理学校数据字段
     if (key.startsWith("school") && schoolData) {
-      let schoolValue = ""
-      switch (key) {
-        case "schoolName":
-          schoolValue = schoolData.name
-          break
-        case "schoolId":
-          schoolValue = schoolData.ncesid
-          break
-        case "schoolZip":
-          schoolValue = schoolData.zip
-          break
-        case "schoolWebsite":
-          schoolValue = schoolData.website && schoolData.website !== "NOT AVAILABLE" ? schoolData.website : ""
-          break
-        case "schoolAddress":
-          schoolValue = `${schoolData.address}, ${schoolData.city}, ${schoolData.state} ${schoolData.zip}`
-          break
-        case "schoolCity":
-          schoolValue = schoolData.city
-          break
-        case "schoolState":
-          schoolValue = schoolData.state
-          break
-        case "schoolPhone":
-          schoolValue = schoolData.telephone
-          break
-        case "schoolGrades":
-          schoolValue = `${schoolData.st_grade}-${schoolData.end_grade}年级`
-          break
-      }
-
-      if (!schoolValue) return null
-
-      return (
-        <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex-1">
-            <div className="text-sm text-gray-600 mb-1">{FIELD_LABELS[key]}</div>
-            <div className="font-medium text-gray-900">
-              {key === "schoolWebsite" && schoolValue ? (
-                <a
-                  href={schoolValue.startsWith("http") ? schoolValue : `https://${schoolValue}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  {schoolValue}
-                </a>
-              ) : (
-                schoolValue
-              )}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(schoolValue, key)}
-            className="ml-2 h-8 w-8 p-0"
-          >
-            {copiedField === key ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-          </Button>
-        </div>
-      )
+      if (key === "schoolName") displayValue = schoolData.name
+      else if (key === "schoolId") displayValue = schoolData.ncesid
+      else if (key === "schoolZip") displayValue = schoolData.zip
+      else if (key === "schoolWebsite") { displayValue = schoolData.website; isLink = true }
+      else if (key === "schoolAddress") displayValue = `${schoolData.address}, ${schoolData.city}`
+      else if (key === "schoolPhone") displayValue = schoolData.telephone
+      else if (key === "schoolGrades") displayValue = `${schoolData.st_grade}-${schoolData.end_grade}`
+    } else if (key.startsWith("university") && universityData) {
+      if (key === "universityName") displayValue = universityData.name
+      else if (key === "universityId") displayValue = universityData.ipedsid
+      else if (key === "universityZip") displayValue = universityData.zip
+      else if (key === "universityWebsite") { displayValue = universityData.website; isLink = true }
+      else if (key === "universityAddress") displayValue = `${universityData.address}, ${universityData.city}`
+      else if (key === "universityPhone") displayValue = universityData.telephone
+      else if (key === "universityType") displayValue = universityData.type
     }
 
-    // 处理大学数据字段
-    if (key.startsWith("university") && universityData) {
-      let universityValue = ""
-      switch (key) {
-        case "universityName":
-          universityValue = universityData.name
-          break
-        case "universityId":
-          universityValue = universityData.ipedsid
-          break
-        case "universityZip":
-          universityValue = universityData.zip
-          break
-        case "universityWebsite":
-          universityValue =
-            universityData.website && universityData.website !== "NOT AVAILABLE" ? universityData.website : ""
-          break
-        case "universityAddress":
-          universityValue = `${universityData.address}, ${universityData.city}, ${universityData.state} ${universityData.zip}`
-          break
-        case "universityCity":
-          universityValue = universityData.city
-          break
-        case "universityState":
-          universityValue = universityData.state
-          break
-        case "universityPhone":
-          universityValue = universityData.telephone
-          break
-        case "universityType":
-          const typeMap: Record<string, string> = {
-            "1": "公立大学",
-            "2": "私立非营利大学",
-            "3": "私立营利大学",
-          }
-          universityValue = typeMap[universityData.type] || universityData.type
-          break
-      }
-
-      if (!universityValue) return null
-
-      return (
-        <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex-1">
-            <div className="text-sm text-gray-600 mb-1">{FIELD_LABELS[key]}</div>
-            <div className="font-medium text-gray-900">
-              {key === "universityWebsite" && universityValue ? (
-                <a
-                  href={universityValue.startsWith("http") ? universityValue : `https://${universityValue}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline"
-                >
-                  {universityValue}
-                </a>
-              ) : (
-                universityValue
-              )}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => copyToClipboard(universityValue, key)}
-            className="ml-2 h-8 w-8 p-0"
-          >
-            {copiedField === key ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-          </Button>
-        </div>
-      )
-    }
+    if (!displayValue || displayValue === "NOT AVAILABLE") return null
 
     return (
       <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <div className="text-sm text-gray-600 mb-1">{FIELD_LABELS[key]}</div>
-          <div className="font-medium text-gray-900">{value?.toString()}</div>
+          <div className="font-medium text-gray-900 truncate">
+            {isLink ? (
+              <a href={displayValue.startsWith("http") ? displayValue : `https://${displayValue}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                {displayValue}
+              </a>
+            ) : displayValue}
+          </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => copyToClipboard(value?.toString() || "", key)}
-          className="ml-2 h-8 w-8 p-0"
-        >
+        <Button variant="ghost" size="sm" onClick={() => copyToClipboard(displayValue, key)}>
           {copiedField === key ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
         </Button>
       </div>
@@ -735,24 +387,12 @@ export default function HomePage() {
   }
 
   const renderCategory = (categoryKey: string, category: any) => {
-    const categoryFields = category.fields.filter((field: string) => {
-      if (!visibleFields.includes(field)) return false
-
-      // 处理学校字段
-      if (field.startsWith("school")) {
-        return schoolData !== null
-      }
-
-      // 处理大学字段
-      if (field.startsWith("university")) {
-        return universityData !== null
-      }
-
-      // 处理普通字段
-      return data && data[field as keyof PersonData]
-    })
-
-    if (categoryFields.length === 0) return null
+    const hasData = category.fields.some((f: string) => visibleFields.includes(f) && (
+      (f.startsWith("school") && schoolData) || 
+      (f.startsWith("university") && universityData) || 
+      (data && (data as any)[f])
+    ))
+    if (!hasData) return null
 
     return (
       <Card key={categoryKey} className="w-full">
@@ -760,17 +400,15 @@ export default function HomePage() {
           <CardTitle className="text-lg font-semibold text-gray-800">{category.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {categoryFields.map((field: string) => renderDataItem(field, data?.[field as keyof PersonData]))}
+          {category.fields.map((field: string) => renderDataItem(field, (data as any)?.[field]))}
         </CardContent>
       </Card>
     )
   }
 
-  const currentYear = new Date().getFullYear()
-
-  const getStateDisplayName = (stateCode: string) => {
-    const stateInfo = US_STATES.find((s) => s.code === stateCode)
-    return stateInfo ? `${stateInfo.name} (${stateInfo.code})` : stateCode
+  const getStateDisplayName = (code: string) => {
+    const s = US_STATES.find(x => x.code ===Pc code)
+    return s ? `${s.name} (${s.code})` : code
   }
 
   return (
@@ -781,107 +419,38 @@ export default function HomePage() {
           <p className="text-lg text-gray-600 mb-6">生成真实的美国地址和个人信息数据</p>
 
           <div className="flex flex-wrap justify-center gap-4 mb-6">
-            <Badge variant="outline" className="text-sm">
-              随机种子: {seed}
-            </Badge>
-            {state && (
-              <Badge variant="secondary" className="text-sm">
-                州: {getStateDisplayName(state)}
-              </Badge>
-            )}
-            {city && (
-              <Badge variant="secondary" className="text-sm">
-                城市: {city}
-              </Badge>
-            )}
-            {gender && (
-              <Badge variant="secondary" className="text-sm">
-                性别: {gender === "Male" ? "男" : "女"}
-              </Badge>
-            )}
-            {minAge > 0 && maxAge > 0 && (
-              <Badge variant="secondary" className="text-sm">
-                年龄: {minAge}-{maxAge}岁 ({currentYear - maxAge}-{currentYear - minAge}年出生)
-              </Badge>
-            )}
-            {highState && (
-              <Badge variant="secondary" className="text-sm">
-                高中州: {getStateDisplayName(highState)}
-              </Badge>
-            )}
-            {highCity && (
-              <Badge variant="secondary" className="text-sm">
-                高中城市: {highCity}
-              </Badge>
-            )}
-            {universityState && (
-              <Badge variant="secondary" className="text-sm">
-                大学州: {getStateDisplayName(universityState)}
-              </Badge>
-            )}
-            {universityCity && (
-              <Badge variant="secondary" className="text-sm">
-                大学城市: {universityCity}
-              </Badge>
-            )}
+            <Badge variant="outline">随机种子: {seed}</Badge>
+            {state && <Badge variant="secondary">州: {getStateDisplayName(state)}</Badge>}
+            {city && <Badge variant="secondary">城市: {city}</Badge>}
+            {gender && <Badge variant="secondary">性别: {gender === 'Male' ? '男' : '女'}</Badge>}
           </div>
 
           <div className="flex justify-center gap-4">
             <Button onClick={handleRegenerate} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-              {loading ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  重新生成
-                </>
-              )}
+              {loading ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 生成中...</> : <><RefreshCw className="mr-2 h-4 w-4" /> 重新生成</>}
             </Button>
             <Button variant="outline" onClick={() => setJsonDialogOpen(true)} disabled={!data}>
-              <Download className="mr-2 h-4 w-4" />
-              导出JSON
+              <Download className="mr-2 h-4 w-4" /> 导出JSON
             </Button>
-
             <Button variant="outline" onClick={() => setConfigOpen(true)}>
-              <Settings className="mr-2 h-4 w-4" />
-              配置参数
+              <Settings className="mr-2 h-4 w-4" /> 配置参数
             </Button>
           </div>
         </div>
 
-        {data && (
+        {data ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.entries(FIELD_CATEGORIES).map(([key, category]) => renderCategory(key, category))}
           </div>
-        )}
-
-        {!data && !loading && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">点击"重新生成"按钮开始生成数据</p>
-          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">正在初始化数据...</div>
         )}
       </div>
 
       <ConfigDialog
         open={configOpen}
         onOpenChange={setConfigOpen}
-        currentConfig={{
-          state,
-          city,
-          gender,
-          minAge,
-          maxAge,
-          visibleFields,
-          seed,
-          birthYear: 0,
-          highState,
-          highCity,
-          universityState,
-          universityCity,
-        }}
+        currentConfig={{ state, city, gender, minAge, maxAge, visibleFields, seed, birthYear: 0, highState, highCity, universityState, universityCity }}
       />
       <JsonDownloadDialog
         open={jsonDialogOpen}
@@ -892,5 +461,14 @@ export default function HomePage() {
         visibleFields={visibleFields}
       />
     </div>
+  )
+}
+
+// 根组件：必须包裹 Suspense 以支持 useSearchParams
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">加载中...</div>}>
+      <GeneratorContent />
+    </Suspense>
   )
 }
